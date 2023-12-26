@@ -55,7 +55,7 @@ def extract_file_name(url):
 
     if len(name_parts) > 1:
         name = name_parts[-1].split('?')[0]
-        name = name_parts[-1].split('#')[0]
+        name = name.split('#')[0]
         name = name.replace("-mobile", "")
         name = name.replace("-silent", "")
         name = name.replace("-large", "")
