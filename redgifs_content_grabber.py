@@ -221,9 +221,9 @@ def main():
 
     save_files()
 
-    logging.info(f"Done in {datetime.timedelta(time.time() - start)}. "
+    logging.info(f"\nDone in {datetime.timedelta(seconds = (time.time() - start))}. "
                  f"Downloaded content: {len(downloaded_files_sizes_mb)} files "
-                 f"({sum(downloaded_files_sizes_mb):.2} MB)")
+                 f"({sum(downloaded_files_sizes_mb):.2f} MB)")
 
 
 def save_files():
