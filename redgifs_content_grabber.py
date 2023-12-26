@@ -1,8 +1,10 @@
 import argparse
+import datetime
 import logging
 import math
 import os
 import threading
+import time
 
 import requests
 from bs4 import BeautifulSoup
@@ -23,22 +25,22 @@ driver: Chrome
 args: argparse.Namespace
 captured_links = set()
 file_cues = set()
+downloaded_files_sizes_mb = []
 
 
 def get_captured_links_batches():
-    batch_size = math.ceil(len(captured_links) / THREADS_TO_USE)
+    file_batch_size = math.ceil(len(captured_links) / THREADS_TO_USE)
     batches = []
 
     while len(captured_links) > 0:
-        batches.append([captured_links.pop() for _ in range(batch_size) if len(captured_links) > 0])
+        batches.append([captured_links.pop() for _ in range(file_batch_size) if len(captured_links) > 0])
 
     return batches
 
 
-def save_files(captured_links_batches):
-    for batch in captured_links_batches:
-        logging.info("Starting thread")
-        threading.Thread(target=(lambda files: [save_file(f) for f in files]), args=(batch,)).start()
+def get_file_saving_threads(captured_links_batches):
+    return [threading.Thread(target=(lambda files: [save_file(f) for f in files]), args=(batch,))
+            for batch in captured_links_batches]
 
 
 def is_duplicate(file_path):
@@ -87,6 +89,7 @@ def save_file(input_):
             with open(file_path, "wb") as file:
                 logging.info(f"T-{thread_id}: Downloading file: {file_name}")
                 file.write(safely_request_content(true_url))
+                downloaded_files_sizes_mb.append(os.path.getsize(file_path) / 1024 ** 2)
                 is_successful = True
 
         except OSError as e:
@@ -110,7 +113,7 @@ def safely_request_content(url):
                 successful = True
 
             except RequestException:
-                logging.warning(f"Error downloading {url}")
+                logging.warning(f"Retrying download of {url}")
 
     return content
 
@@ -155,18 +158,23 @@ def setup_output_directory(identifier):
     logging.info("Setting up directory")
 
     global OUTPUT_DIR
-    OUTPUT_DIR = f"{args.output}/{identifier}"
+    OUTPUT_DIR = f"{args.output}/{identifier if identifier else ''}"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 def get_identifier(target):
-    identifier_parts = target.split("/")
+    identifier = None
 
-    if len(identifier_parts) > 1:
-        return identifier_parts[-1].split("?")[0]
+    if target:
+        identifier_parts = target.split("/")
+
+        if len(identifier_parts) > 1:
+            identifier = identifier_parts[-1].split("?")[0]
 
     else:
-        logging.error(f"Could get identifier from target {target}")
+        logging.warning(f"Could get identifier from target {target}")
+
+    return identifier
 
 
 def build_capture_links_from_cues():
@@ -192,27 +200,39 @@ def build_capture_links_from_text_file():
 
 
 def main():
+    start = time.time()
     logging.getLogger().setLevel(logging.INFO)
 
     global args
     args = get_args()
     webdriver_setup()
     identifier = get_identifier(args.target)
+    setup_output_directory(identifier)
 
-    if identifier:
-        setup_output_directory(identifier)
+    if args.mode == "f":
+        build_capture_links_from_text_file()
 
-        if args.mode == "s":
-            build_capture_links_from_cues()
+    elif args.mode == "s":
+        build_capture_links_from_cues()
 
-        elif args.mode == "f":
-            build_capture_links_from_text_file()
+    else:
+        logging.info("Capturing true links for content")
+        capture_content_links(args.target)
 
-        else:
-            capture_content_links(args.target)
+    save_files()
 
-    save_files(get_captured_links_batches())
-    logging.info("Done")
+    logging.info(f"Done in {datetime.timedelta(time.time() - start)}. "
+                 f"Downloaded content: {len(downloaded_files_sizes_mb)} files "
+                 f"({sum(downloaded_files_sizes_mb):.2} MB)")
+
+
+def save_files():
+    threads = [threading.Thread(target=(lambda files: [save_file(f) for f in files]), args=(batch,))
+               for batch in get_captured_links_batches()]
+
+    logging.info("Starting file saving threads")
+    [thread.start() for thread in threads]
+    [thread.join() for thread in threads]
 
 
 def get_args():
