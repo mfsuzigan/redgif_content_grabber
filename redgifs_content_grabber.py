@@ -142,7 +142,7 @@ def capture_content_links(url):
 
         for tile in tiles_to_inspect:
             centralize_at_element(tile)
-            src = tile.find_element(By.CLASS_NAME, "thumbnail.lazyLoad.visible").get_attribute("src")
+            src = tile.find_element(By.CLASS_NAME, "thumbnail").get_attribute("src")
 
             if args.mode == "p":
                 tile.screenshot(f"{OUTPUT_DIR}/{src.split('/')[-1].split('?')[0]}.png")
@@ -216,7 +216,6 @@ def main():
         build_capture_links_from_cues()
 
     else:
-        logging.info("Capturing true links for content")
         capture_content_links(args.target)
 
     save_files()
