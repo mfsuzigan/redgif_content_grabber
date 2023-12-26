@@ -142,7 +142,7 @@ def capture_content_links(url):
 
         for tile in tiles_to_inspect:
             centralize_at_element(tile)
-            src = tile.find_element(By.CLASS_NAME, "thumbnail").get_attribute("src")
+            src = tile.get_attribute("href")
 
             if args.mode == "p":
                 tile.screenshot(f"{OUTPUT_DIR}/{src.split('/')[-1].split('?')[0]}.png")
@@ -240,8 +240,8 @@ def get_args():
     arg_parser.add_argument("--target", "-t", required=False, help="Target page")
     arg_parser.add_argument("--output", "-o", required=True, help="Output directory")
     arg_parser.add_argument("--headless", "-hl", action="store_true", help="Headless run (flag)")
-    arg_parser.add_argument("--mode", "-m", default="v", help="Mode: v, t, f, s (video, thumbs, "
-                                                              "from text file or selected from directory)")
+    arg_parser.add_argument("--mode", "-m", default="v", help="Mode: v, t, f, s (video, text file, thumbs, "
+                                                              " or selected from thumbs directory)")
 
     return arg_parser.parse_args()
 
