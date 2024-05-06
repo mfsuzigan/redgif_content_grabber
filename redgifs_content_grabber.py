@@ -199,7 +199,24 @@ def build_capture_links_from_text_file():
             captured_links.add(src.attrs["content"])
 
 
+def test(n):
+    thresholds = [15, 45, 178]
+    calc = ["menor" if n < t else "maior" for t in thresholds]
+
+    if "menor" not in calc:
+        print(f"maior q {thresholds[-1]}")
+
+    elif "maior" not in calc:
+        print(f"menor q {thresholds[0]}")
+
+    else:
+        upper = thresholds[calc.index("menor")]
+        lower = thresholds[calc.index("maior")]
+        print(f"entre {lower} e {upper}")
+
 def main():
+    test(15)
+    return
     start = time.time()
     logging.getLogger().setLevel(logging.INFO)
 
@@ -220,7 +237,7 @@ def main():
 
     save_files()
 
-    logging.info(f"\nDone in {datetime.timedelta(seconds = (time.time() - start))}. "
+    logging.info(f"\nDone in {datetime.timedelta(seconds=(time.time() - start))}. "
                  f"Downloaded content: {len(downloaded_files_sizes_mb)} files "
                  f"({sum(downloaded_files_sizes_mb):.2f} MB)")
 
