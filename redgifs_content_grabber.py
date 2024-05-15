@@ -7,7 +7,6 @@ import threading
 import time
 
 import requests
-from bs4 import BeautifulSoup
 from requests import RequestException
 from selenium.common import TimeoutException
 from selenium.webdriver import Chrome
@@ -181,42 +180,23 @@ def build_capture_links_from_cues():
     captured_links.update([file_name.split("-")[0] for file_name in os.listdir(OUTPUT_DIR)])
 
 
+def extract_content_identifier(preliminary_link):
+    return preliminary_link.split("watch/")[-1].split("#")[-2]
+
+
 def build_capture_links_from_text_file():
     preliminary_links = []
 
     with open(f"{OUTPUT_DIR}/input.txt") as input_file:
         preliminary_links.extend([f"https://www.{link}" for link in input_file.read().split("https://www.")][1:])
 
-    for link in preliminary_links:
-        logging.info(f"Capturing true link for {link}")
-        soup = BeautifulSoup(safely_request_content(link), "html.parser")
-        src = soup.find("meta", {"property": "og:video"})
+    for preliminary_link in preliminary_links:
+        logging.info(f"Capturing true link for {preliminary_link}")
+        intermediary_link = f"https://api.redgifs.com/v2/gifs/{extract_content_identifier(preliminary_link)}"
+        captured_links.add(intermediary_link)
 
-        if not src:
-            src = soup.find("meta", {"property": "og:image:url"})
-
-        if src:
-            captured_links.add(src.attrs["content"])
-
-
-def test(n):
-    thresholds = [15, 45, 178]
-    calc = ["menor" if n < t else "maior" for t in thresholds]
-
-    if "menor" not in calc:
-        print(f"maior q {thresholds[-1]}")
-
-    elif "maior" not in calc:
-        print(f"menor q {thresholds[0]}")
-
-    else:
-        upper = thresholds[calc.index("menor")]
-        lower = thresholds[calc.index("maior")]
-        print(f"entre {lower} e {upper}")
 
 def main():
-    test(15)
-    return
     start = time.time()
     logging.getLogger().setLevel(logging.INFO)
 
@@ -257,7 +237,7 @@ def get_args():
     arg_parser.add_argument("--target", "-t", required=False, help="Target page")
     arg_parser.add_argument("--output", "-o", required=True, help="Output directory")
     arg_parser.add_argument("--headless", "-hl", action="store_true", help="Headless run (flag)")
-    arg_parser.add_argument("--mode", "-m", default="v", help="Mode: v, t, f, s (video, text file, thumbs, "
+    arg_parser.add_argument("--mode", "-m", default="v", help="Mode: v, t, f, s (video, thumbs, text file, "
                                                               " or selected from thumbs directory)")
 
     return arg_parser.parse_args()
