@@ -5,6 +5,7 @@ import math
 import os
 import threading
 import time
+from urllib.parse import urlparse
 
 import requests
 from requests import RequestException
@@ -69,11 +70,9 @@ def save_file(input_):
     file_name = input_ if args.mode == "s" else extract_file_name(input_)
 
     if ".jpg" in input_:
-        true_url = input_
         file_name += ".jpg"
 
     else:
-        true_url = build_real_url(file_name)
         file_name += ".mp4"
 
     file_path = f"{OUTPUT_DIR}/{file_name}"
@@ -87,7 +86,7 @@ def save_file(input_):
         try:
             with open(file_path, "wb") as file:
                 logging.info(f"T-{thread_id}: Downloading file: {file_name}")
-                file.write(safely_request_content(true_url))
+                file.write(safely_request_content(input_))
                 downloaded_files_sizes_mb.append(os.path.getsize(file_path) / 1024 ** 2)
                 is_successful = True
 
@@ -181,7 +180,20 @@ def build_capture_links_from_cues():
 
 
 def extract_content_identifier(preliminary_link):
-    return preliminary_link.split("watch/")[-1].split("#")[-2]
+    return urlparse(preliminary_link).path.split("/")[-1]
+
+
+def get_temp_auth_token():
+    temp_auth_response = requests.get("https://api.redgifs.com/v2/auth/temporary").json()
+    return temp_auth_response["token"]
+
+
+def get_signed_content_link(intermediary_link, auth_token):
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    signed_content_response = requests.get(intermediary_link, headers=headers)
+    signed_content_response.raise_for_status()
+    signed_content_response = signed_content_response.json()
+    return signed_content_response["gif"]["urls"]["hd"]
 
 
 def build_capture_links_from_text_file():
@@ -190,10 +202,12 @@ def build_capture_links_from_text_file():
     with open(f"{OUTPUT_DIR}/input.txt") as input_file:
         preliminary_links.extend([f"https://www.{link}" for link in input_file.read().split("https://www.")][1:])
 
+    temp_auth_token = get_temp_auth_token()
+
     for preliminary_link in preliminary_links:
         logging.info(f"Capturing true link for {preliminary_link}")
         intermediary_link = f"https://api.redgifs.com/v2/gifs/{extract_content_identifier(preliminary_link)}"
-        captured_links.add(intermediary_link)
+        captured_links.add(get_signed_content_link(intermediary_link, temp_auth_token))
 
 
 def main():
